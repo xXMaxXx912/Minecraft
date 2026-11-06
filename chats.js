@@ -1,7 +1,6 @@
 // Gespeicherte Gespräche, je Konto. Speicherung als JSON-Datei.
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
+import { readJson, writeJson } from "./storage.js";
 
 export const MAX_CHATS_PER_USER = 100;
 export const MAX_MESSAGES_PER_CHAT = 1000;
@@ -9,18 +8,11 @@ export const MAX_MESSAGES_PER_CHAT = 1000;
 export class ChatStore {
   constructor(file) {
     this.file = file;
-    try {
-      this.chats = JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch {
-      this.chats = [];
-    }
+    this.chats = readJson(file, []);
   }
 
   save() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.chats));
-    fs.renameSync(tmp, this.file); // atomar: keine halb geschriebene Datei bei Absturz
+    writeJson(this.file, this.chats);
   }
 
   listFor(ownerId) {

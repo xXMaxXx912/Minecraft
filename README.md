@@ -25,6 +25,24 @@ npm start              # http://localhost:3000
 npm test
 ```
 
+## Auf dem iPhone nutzen
+Das iPhone kann den Server nicht selbst ausführen – der Server läuft auf einem PC/Mac oder im Internet,
+das iPhone öffnet die App in Safari und kann sie wie eine normale App auf den Home-Bildschirm legen.
+
+**Variante A – zu Hause im WLAN (am einfachsten):**
+1. Auf dem PC `npm start` ausführen. Der Server zeigt zwei Adressen an, z. B.
+   `Im WLAN (z. B. iPhone): http://192.168.178.23:3000`
+2. iPhone im **selben WLAN** → Safari → diese Adresse öffnen.
+3. Teilen-Symbol (□↑) → **„Zum Home-Bildschirm“**. Die App startet dann im Vollbild mit eigenem Icon.
+4. Falls die Seite nicht lädt: Die Firewall des PCs muss Port 3000 erlauben (Windows fragt beim ersten Start nach).
+
+**Variante B – von überall (Internet):** Auf einem Server oder Hoster (z. B. VPS, Render, Railway) betreiben,
+**immer mit HTTPS** (z. B. Caddy oder nginx als Reverse-Proxy) und `TRUST_PROXY=1` in `.env` setzen.
+
+Angepasst für iOS: Notch/Home-Leiste (Safe Areas), Eingabefeld bleibt über der Tastatur, kein Auto-Zoom
+in Eingabefelder, Touch-Flächen ≥ 44 px, Querformat, kleine Geräte (iPhone SE).
+Hinweis: Die Home-Bildschirm-App hat ihre eigenen Cookies – dort einmal separat anmelden.
+
 ## Eigene Figuren anlegen
 - **Im Browser:** Im Chat auf „Eigene Figuren“ klicken (oder `/figuren.html` öffnen). Dort Name, Alter (≥ 18),
   Begrüßung und Beschreibung eingeben, speichern und mit „Chatten“ direkt loslegen. Eigene Figuren
@@ -35,7 +53,8 @@ npm test
 ## Daten
 Alles liegt als JSON-Dateien in `data/` (Pfad änderbar über `DATA_DIR`):
 `users.json` (Konten), `custom-characters.json` (eigene Figuren), `chats.json` (Gespräche).
-Diesen Ordner regelmäßig sichern. Gespräche werden **unverschlüsselt** gespeichert – wer Zugriff auf den
+Diesen Ordner regelmäßig sichern. Dateien werden atomar geschrieben; ist eine Datei trotzdem
+beschädigt, startet der Server bewusst **nicht** (statt sie mit leeren Daten zu überschreiben) und nennt die Datei. Gespräche werden **unverschlüsselt** gespeichert – wer Zugriff auf den
 Server hat, kann sie lesen. Beim Löschen eines Kontos oder einer Figur werden die zugehörigen Gespräche mitgelöscht.
 
 ## Wichtig vor einer Veröffentlichung

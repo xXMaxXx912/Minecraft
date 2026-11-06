@@ -25,6 +25,7 @@ test("Registrierung prüft Alter und Eingaben", () => {
   const ok = { username: "max_1", password: "12345678", birthdate: "1990-05-01", confirm: true };
   assert.equal(validateRegistration(ok), null);
   assert.match(validateRegistration({ ...ok, birthdate: "2015-01-01" }), /ab 18/);
+  assert.match(validateRegistration({ ...ok, birthdate: "2099-01-01" }), /Ungültiges Geburtsdatum/);
   assert.match(validateRegistration({ ...ok, confirm: false }), /ab 18/);
   assert.match(validateRegistration({ ...ok, password: "kurz" }), /8 Zeichen/);
   assert.match(validateRegistration({ ...ok, username: "a b" }), /Benutzername/);

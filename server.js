@@ -1,6 +1,7 @@
 import "dotenv/config";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -16,6 +17,7 @@ import {
   validateRegistration,
 } from "./auth.js";
 import { ChatStore } from "./chats.js";
+import { readJson, writeJson } from "./storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,17 +49,9 @@ for (const c of baseCharacters) {
 
 // Eigene Figuren, die über die Weboberfläche angelegt werden. Jede gehört einem Konto (ownerId).
 const CUSTOM_FILE = path.join(DATA_DIR, "custom-characters.json");
-let customCharacters = [];
-try {
-  customCharacters = JSON.parse(fs.readFileSync(CUSTOM_FILE, "utf8")).filter(
-    (c) => c.ownerId && !validateCharacter(c),
-  );
-} catch {
-  customCharacters = [];
-}
+let customCharacters = readJson(CUSTOM_FILE, []).filter((c) => c.ownerId && !validateCharacter(c));
 function saveCustom() {
-  fs.mkdirSync(path.dirname(CUSTOM_FILE), { recursive: true });
-  fs.writeFileSync(CUSTOM_FILE, JSON.stringify(customCharacters, null, 2));
+  writeJson(CUSTOM_FILE, customCharacters);
 }
 const charactersFor = (user) => [...baseCharacters, ...customCharacters.filter((c) => c.ownerId === user.id)];
 
@@ -76,6 +70,9 @@ export function validateCharacter(c) {
 export { ageFromBirthdate };
 
 const app = express();
+// Hinter einem HTTPS-Reverse-Proxy (Caddy, nginx, Render, …) TRUST_PROXY=1 setzen,
+// damit req.secure stimmt und Cookies als "Secure" markiert werden.
+if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 app.use(express.json({ limit: "200kb" }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
@@ -292,7 +289,15 @@ app.post("/api/chats/:id/messages", requireUser, async (req, res) => {
 });
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  app.listen(PORT, () => console.log(`Chatbot läuft auf http://localhost:${PORT}`));
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Chatbot läuft auf http://localhost:${PORT}`);
+    // Adressen im lokalen Netz, z. B. zum Öffnen auf dem iPhone im selben WLAN.
+    const lan = Object.values(os.networkInterfaces())
+      .flat()
+      .filter((i) => i && i.family === "IPv4" && !i.internal)
+      .map((i) => `http://${i.address}:${PORT}`);
+    if (lan.length) console.log(`Im WLAN (z. B. iPhone):  ${lan.join("  ")}`);
+  });
 }
 
 export default app;

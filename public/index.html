@@ -2,10 +2,20 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141218">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chat 18+">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <meta name="rating" content="adult">
   <title>Rollenspiel-Chat 18+</title>
   <link rel="stylesheet" href="style.css">
+  <script src="ios.js" defer></script>
 </head>
 <body>
   <section id="gate" class="card" hidden>
@@ -17,13 +27,13 @@
     </div>
 
     <form id="login-form">
-      <label>Benutzername <input id="login-user" autocomplete="username" required></label>
+      <label>Benutzername <input id="login-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
       <label>Passwort <input id="login-pass" type="password" autocomplete="current-password" required></label>
       <button type="submit">Anmelden</button>
     </form>
 
     <form id="register-form" hidden>
-      <label>Benutzername <input id="reg-user" autocomplete="username" pattern="[A-Za-z0-9_.\-]{3,24}" title="3–24 Zeichen: Buchstaben, Ziffern, _ . -" required></label>
+      <label>Benutzername <input id="reg-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" pattern="[A-Za-z0-9_.\-]{3,24}" title="3–24 Zeichen: Buchstaben, Ziffern, _ . -" required></label>
       <label>Passwort <small>(mind. 8 Zeichen)</small> <input id="reg-pass" type="password" autocomplete="new-password" minlength="8" required></label>
       <label>Geburtsdatum <small>(wird nicht gespeichert)</small> <input type="date" id="birthdate" required></label>
       <label class="check"><input type="checkbox" id="confirm" required> Ich bestätige, dass ich mindestens 18 Jahre alt bin.</label>
@@ -45,7 +55,7 @@
     </div>
     <main id="log" aria-live="polite"></main>
     <form id="chat-form">
-      <textarea id="input" rows="2" placeholder="Schreib etwas… (Enter = senden, Shift+Enter = neue Zeile)" required></textarea>
+      <textarea id="input" rows="1" enterkeyhint="send" autocapitalize="sentences" placeholder="Schreib etwas…" required></textarea>
       <button type="submit">Senden</button>
     </form>
     <p class="hint">Das ist eine KI. Schreib „Stopp“, um eine Szene sofort zu beenden.</p>

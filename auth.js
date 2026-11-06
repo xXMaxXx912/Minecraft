@@ -1,8 +1,7 @@
 // Benutzerkonten: Passwort-Hashing (scrypt), Speicherung als JSON-Datei,
 // signierte Sitzungs-Cookies und eine einfache Sperre gegen Passwort-Raten.
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
+import { readJson, writeJson } from "./storage.js";
 
 export const SESSION_COOKIE = "session";
 export const SESSION_MAX_AGE = 1000 * 60 * 60 * 24 * 30; // 30 Tage
@@ -25,7 +24,7 @@ export function validateRegistration({ username, password, birthdate, confirm })
     return "Passwort muss mindestens 8 Zeichen lang sein.";
   }
   const age = ageFromBirthdate(birthdate);
-  if (age === null || age > 120) return "Ungültiges Geburtsdatum.";
+  if (age === null || age < 0 || age > 120) return "Ungültiges Geburtsdatum.";
   if (age < 18 || confirm !== true) return "Dieser Bereich ist nur für Erwachsene ab 18 Jahren.";
   return null;
 }
@@ -51,16 +50,11 @@ const DUMMY_HASH = hashPassword(crypto.randomBytes(16).toString("hex"));
 export class UserStore {
   constructor(file) {
     this.file = file;
-    try {
-      this.users = JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch {
-      this.users = [];
-    }
+    this.users = readJson(file, []);
   }
 
   save() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file, JSON.stringify(this.users, null, 2));
+    writeJson(this.file, this.users);
   }
 
   byId(id) {

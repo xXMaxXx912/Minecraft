@@ -80,6 +80,7 @@ async function refreshList() {
 async function openApp() {
   $("gate").hidden = true;
   $("app").hidden = false;
+  document.body.classList.add("chat-open");
   const me = await api("/api/me");
   $("account-link").textContent = `👤 ${me.username}`;
   [characters] = await Promise.all([api("/api/characters"), refreshList()]);
@@ -154,8 +155,16 @@ $("delete-chat").addEventListener("click", async () => {
   }
 });
 
+// Eingabefeld wächst mit dem Text mit (bis max. 30 % der Höhe, siehe CSS).
+function autoGrow() {
+  const t = $("input");
+  t.style.height = "auto";
+  t.style.height = `${t.scrollHeight + 2}px`;
+}
+$("input").addEventListener("input", autoGrow);
+
 $("input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     $("chat-form").requestSubmit();
   }
@@ -168,6 +177,7 @@ $("chat-form").addEventListener("submit", async (e) => {
   const btn = $("chat-form").querySelector("button");
   btn.disabled = true;
   $("input").value = "";
+  autoGrow();
   chat.messages = chat.messages.filter((m) => !m.error);
   chat.messages.push({ role: "user", content: text });
   renderMessages();
@@ -185,6 +195,7 @@ $("chat-form").addEventListener("submit", async (e) => {
     chat.messages.pop();
     chat.messages.push({ role: "assistant", content: `⚠️ ${err.message}`, error: true });
     $("input").value = text;
+    autoGrow();
   } finally {
     btn.disabled = false;
     render();
