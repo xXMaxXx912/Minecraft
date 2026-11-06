@@ -5,6 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.js",
     "start": "node server.js",
     "test": "node --test",
     "iphone": "node scripts/serve-iphone.js"

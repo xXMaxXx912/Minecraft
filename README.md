@@ -20,7 +20,7 @@ Web-App für fiktive Rollenspiel-Chats mit KI-Figuren – ausschließlich für E
 ## Start
 ```bash
 npm install
-cp .env.example .env   # API-URL, Key, Modell und SESSION_SECRET eintragen
+npm run setup          # Assistent: Key einfügen, Modell wählen – schreibt die .env
 npm start              # http://localhost:3000
 npm test
 ```
@@ -68,6 +68,10 @@ das iPhone öffnet die App in Safari und kann sie wie eine normale App auf den H
 Angepasst für iOS: Notch/Home-Leiste (Safe Areas), Eingabefeld bleibt über der Tastatur, kein Auto-Zoom
 in Eingabefelder, Touch-Flächen ≥ 44 px, Querformat, kleine Geräte (iPhone SE).
 Hinweis: Die Home-Bildschirm-App hat ihre eigenen Cookies – dort einmal separat anmelden.
+
+> **Windows/PowerShell:** Falls „Ausführung von Skripts deaktiviert“ erscheint, `npm.cmd` statt `npm`
+> verwenden (z. B. `npm.cmd run setup`) oder die Eingabeaufforderung (cmd) nutzen.
+> Projektordner am besten **nicht** in OneDrive ablegen (z. B. `C:\Projekte\Minecraft`).
 
 ## Eigene Figuren anlegen
 - **Im Browser:** Im Chat auf „Eigene Figuren“ klicken (oder `/figuren.html` öffnen). Dort Name, Alter (≥ 18),
