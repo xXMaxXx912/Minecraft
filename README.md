@@ -20,7 +20,7 @@ Web-App für fiktive Rollenspiel-Chats mit KI-Figuren – ausschließlich für E
 ## Start
 ```bash
 npm install
-npm run setup          # Assistent: Key einfügen, Modell wählen – schreibt die .env
+npm run setup          # Assistent: Anbieter wählen, Key einfügen, Modell wählen – schreibt die .env
 npm start              # http://localhost:3000
 npm test
 ```
@@ -72,6 +72,18 @@ Hinweis: Die Home-Bildschirm-App hat ihre eigenen Cookies – dort einmal separa
 > **Windows/PowerShell:** Falls „Ausführung von Skripts deaktiviert“ erscheint, `npm.cmd` statt `npm`
 > verwenden (z. B. `npm.cmd run setup`) oder die Eingabeaufforderung (cmd) nutzen.
 > Projektordner am besten **nicht** in OneDrive ablegen (z. B. `C:\Projekte\Minecraft`).
+
+## Kostenlose KI-Anbieter
+`npm run setup` bietet diese Anbieter zur Auswahl an (Stand Ende 2026, Limits ändern sich – bitte beim Anbieter prüfen):
+
+| Anbieter | Kosten | Key | Hinweis |
+|---|---|---|---|
+| **Groq** | kostenloser Tarif mit Tageslimit | console.groq.com/keys | schnell, keine Kreditkarte |
+| **OpenRouter** | Modelle mit Endung `:free` kostenlos | openrouter.ai/keys | wenige Anfragen pro Tag |
+| **Ollama** | komplett kostenlos, läuft auf deinem PC | keiner | braucht einen PC mit genug RAM/Grafikkarte; nur für die Server-Version |
+| Grok / xAI | kostenpflichtig (ggf. Startguthaben) | console.x.ai | |
+
+Jeder Anbieter hat eigene Nutzungsregeln – welche Inhalte erlaubt sind, legt der Anbieter fest.
 
 ## Eigene Figuren anlegen
 - **Im Browser:** Im Chat auf „Eigene Figuren“ klicken (oder `/figuren.html` öffnen). Dort Name, Alter (≥ 18),

@@ -29,6 +29,9 @@ const {
   PORT = 3000,
 } = process.env;
 
+// Lokale KI (z. B. Ollama auf diesem PC) braucht keinen API-Key.
+const isLocalLLM = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\//.test(LLM_BASE_URL + "/");
+
 // Der Platzhalter aus .env.example ist öffentlich bekannt und darf nie als Schlüssel dienen.
 const secretIsSet = !!SESSION_SECRET && SESSION_SECRET !== "bitte-aendern";
 const secret = secretIsSet ? SESSION_SECRET : crypto.randomBytes(32).toString("hex");
@@ -237,7 +240,7 @@ async function askLLM(character, history) {
 
   const r = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LLM_API_KEY}` },
+    headers: { "Content-Type": "application/json", ...(LLM_API_KEY ? { Authorization: `Bearer ${LLM_API_KEY}` } : {}) },
     body: JSON.stringify({
       model: LLM_MODEL,
       messages: [{ role: "system", content: system }, ...history],
@@ -270,8 +273,10 @@ app.post("/api/chats/:id/messages", requireUser, async (req, res) => {
     return res.json({ reply: reply.content, blocked: true, title: chat.title });
   }
 
-  if (!LLM_API_KEY || !LLM_MODEL) {
-    return res.status(500).json({ error: "LLM_API_KEY und LLM_MODEL müssen in .env gesetzt sein." });
+  if (!LLM_MODEL || (!LLM_API_KEY && !isLocalLLM)) {
+    return res.status(500).json({
+      error: "Noch kein KI-Anbieter eingerichtet: Bitte im Projektordner „npm run setup“ ausführen (in PowerShell: npm.cmd run setup) und den Server neu starten.",
+    });
   }
 
   chats.append(chat, userMsg);

@@ -11,6 +11,32 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_FILE = process.env.SETUP_ENV_FILE || path.join(root, ".env");
 const DEFAULT_BASE_URL = "https://api.x.ai/v1";
 
+export const PROVIDERS = [
+  {
+    name: "Groq – kostenlos (Konto nötig, keine Kreditkarte)",
+    url: "https://api.groq.com/openai/v1",
+    keyHelp: "Key holen: https://console.groq.com/keys → „Create API Key“ (beginnt mit gsk_)",
+  },
+  {
+    name: "OpenRouter – kostenlose Modelle (Endung „:free“)",
+    url: "https://openrouter.ai/api/v1",
+    keyHelp: "Key holen: https://openrouter.ai/keys → „Create Key“ (beginnt mit sk-or-)",
+    keyCheckPath: "/key", // /models prüft den Key bei OpenRouter nicht
+    onlyFree: true,
+  },
+  {
+    name: "Ollama – kostenlos auf diesem PC, kein Key nötig",
+    url: "http://localhost:11434/v1",
+    noKey: true,
+    offlineHelp: "Ollama läuft nicht. Installieren: https://ollama.com → danach im Terminal z. B. „ollama pull llama3.1“.",
+  },
+  {
+    name: "Grok / xAI – kostenpflichtig",
+    url: "https://api.x.ai/v1",
+    keyHelp: "Key holen: https://console.x.ai → API Keys (beginnt mit xai-)",
+  },
+];
+
 // ---- .env lesen/schreiben ----
 
 export function parseEnv(text) {
@@ -43,8 +69,8 @@ export function buildEnv(values) {
 
 // ---- Eingabe ----
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY });
-const lines = rl[Symbol.asyncIterator]();
+let rl;
+let lines;
 async function ask(question, def = "") {
   process.stdout.write(def ? `${question} [${def}]: ` : `${question}: `);
   const { value, done } = await lines.next();
@@ -71,26 +97,37 @@ async function askHidden(question) {
 
 // ---- API ----
 
-async function listModels(baseUrl, key) {
+async function apiGet(baseUrl, pathName, key, provider) {
   let r;
   try {
-    r = await fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
-      headers: { Authorization: `Bearer ${key}` },
+    r = await fetch(`${baseUrl.replace(/\/+$/, "")}${pathName}`, {
+      headers: key ? { Authorization: `Bearer ${key}` } : {},
       signal: AbortSignal.timeout(20000),
     });
   } catch (err) {
-    throw new Error(`Keine Verbindung zu ${baseUrl} (${err.cause?.code || err.message}). Internet/Firewall prüfen.`);
+    throw new Error(provider?.offlineHelp || `Keine Verbindung zu ${baseUrl} (${err.cause?.code || err.message}). Internet/Firewall prüfen.`);
   }
   if (!r.ok) {
     const text = await r.text().catch(() => "");
-    const hint = r.status === 401 || r.status === 400 || /api.?key/i.test(text)
-      ? "Der API-Key wurde abgelehnt – bitte prüfen (beginnt mit xai-, vollständig kopiert?)."
+    const hint = r.status === 401 || r.status === 400 || /api.?key|unauthori[sz]ed|invalid.*key/i.test(text)
+      ? "Der API-Key wurde abgelehnt – bitte prüfen (vollständig kopiert, ohne Leerzeichen?)."
       : r.status === 403 ? "Kein Zugriff – Berechtigungen/Guthaben des Keys prüfen."
       : "Unerwartete Antwort des Anbieters.";
     throw new Error(`${hint} (Status ${r.status})`);
   }
-  const data = await r.json();
-  return (data.data || []).map((m) => m.id).filter(Boolean).sort();
+  return r.json();
+}
+
+export function pickModels(ids, provider) {
+  let list = ids.filter((id) => !/whisper|tts|embed|guard|moderation|audio|image|vision-only/i.test(id));
+  if (provider?.onlyFree) list = list.filter((id) => id.endsWith(":free"));
+  return [...new Set(list)].sort();
+}
+
+async function listModels(baseUrl, key, provider) {
+  if (provider?.keyCheckPath) await apiGet(baseUrl, provider.keyCheckPath, key, provider);
+  const data = await apiGet(baseUrl, "/models", key, provider);
+  return pickModels((data.data || data.models || []).map((m) => m.id || m.name).filter(Boolean), provider);
 }
 
 // ---- Ablauf ----
@@ -100,28 +137,57 @@ async function main() {
   const existing = fs.existsSync(ENV_FILE) ? parseEnv(fs.readFileSync(ENV_FILE, "utf8")) : {};
   if (fs.existsSync(ENV_FILE)) console.log(`Vorhandene Einstellungen in ${ENV_FILE} werden übernommen bzw. ergänzt.\n`);
 
-  const baseUrl = await ask("API-Adresse (Enter = Grok/xAI)", existing.LLM_BASE_URL || DEFAULT_BASE_URL);
+  console.log("Welchen KI-Anbieter möchtest du nutzen?");
+  PROVIDERS.forEach((p, i) => console.log(`  ${i + 1}) ${p.name}`));
+  console.log(`  ${PROVIDERS.length + 1}) Andere Adresse eingeben`);
+  const presetIdx = PROVIDERS.findIndex((p) => p.url === existing.LLM_BASE_URL);
+  let provider = null;
+  let baseUrl = "";
+  while (!baseUrl) {
+    const n = Number(await ask("Nummer wählen", String(presetIdx >= 0 ? presetIdx + 1 : 1)));
+    if (n >= 1 && n <= PROVIDERS.length) {
+      provider = PROVIDERS[n - 1];
+      baseUrl = provider.url;
+    } else if (n === PROVIDERS.length + 1) {
+      baseUrl = await ask("API-Adresse (OpenAI-kompatibel, endet meist auf /v1)", existing.LLM_BASE_URL || DEFAULT_BASE_URL);
+    } else {
+      console.log(`Bitte eine Zahl von 1 bis ${PROVIDERS.length + 1} eingeben.`);
+    }
+  }
 
   let key = "";
   let models = [];
-  const hasKey = existing.LLM_API_KEY && !/dein-api-key/.test(existing.LLM_API_KEY);
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    console.log(attempt === 1 ? "\nDen API-Key bekommst du auf https://console.x.ai → API Keys." : "");
-    key = await askHidden(hasKey && attempt === 1 ? "API-Key (Enter = vorhandenen behalten)" : "API-Key einfügen (Rechtsklick oder Strg+V, dann Enter)");
-    if (!key && hasKey) key = existing.LLM_API_KEY;
-    if (!key) {
-      console.log("Kein Key eingegeben.");
-      continue;
-    }
-    process.stdout.write("Prüfe Key … ");
+  if (provider?.noKey) {
+    process.stdout.write("\nPrüfe Verbindung … ");
     try {
-      models = await listModels(baseUrl, key);
-      console.log(`OK, ${models.length} Modelle verfügbar.`);
-      break;
+      models = await listModels(baseUrl, "", provider);
+      console.log(`OK, ${models.length} Modelle installiert.`);
+      if (!models.length) throw new Error("Noch kein Modell installiert. Im Terminal z. B. „ollama pull llama3.1“ ausführen und Setup neu starten.");
     } catch (err) {
-      console.log(`\n✖ ${err.message}`);
-      key = "";
-      if (attempt === 3) throw new Error("Abgebrochen – Key konnte nicht bestätigt werden.");
+      throw new Error(err.message);
+    }
+  } else {
+    const sameProvider = existing.LLM_BASE_URL === baseUrl;
+    const hasKey = sameProvider && existing.LLM_API_KEY && !/dein-api-key/.test(existing.LLM_API_KEY);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt === 1) console.log(`\n${provider?.keyHelp || "Den API-Key bekommst du in der Konsole deines Anbieters."}`);
+      key = await askHidden(hasKey && attempt === 1 ? "API-Key (Enter = vorhandenen behalten)" : "API-Key einfügen (Rechtsklick oder Strg+V, dann Enter)");
+      if (!key && hasKey) key = existing.LLM_API_KEY;
+      if (!key) {
+        console.log("Kein Key eingegeben.");
+        if (attempt === 3) throw new Error("Abgebrochen – kein Key eingegeben.");
+        continue;
+      }
+      process.stdout.write("Prüfe Key … ");
+      try {
+        models = await listModels(baseUrl, key, provider);
+        console.log(`OK, ${models.length} Modelle verfügbar.`);
+        break;
+      } catch (err) {
+        console.log(`\n✖ ${err.message}`);
+        key = "";
+        if (attempt === 3) throw new Error("Abgebrochen – Key konnte nicht bestätigt werden.");
+      }
     }
   }
 
@@ -151,9 +217,14 @@ async function main() {
   console.log("\nJetzt den Server (neu) starten:  npm start   (in PowerShell: npm.cmd start)\n");
 }
 
-main()
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY });
+  lines = rl[Symbol.asyncIterator]();
+  main()
   .catch((err) => {
     console.error(`\n✖ ${err.message}\n`);
     process.exitCode = 1;
   })
   .finally(() => rl.close());
+}
