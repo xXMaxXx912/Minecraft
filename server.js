@@ -6,6 +6,15 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cookieParser from "cookie-parser";
 import { HARD_RULES, mentionsMinor, REFUSAL } from "./safety.js";
+import {
+  ageFromBirthdate,
+  createLoginLimiter,
+  createSessions,
+  SESSION_COOKIE,
+  SESSION_MAX_AGE,
+  UserStore,
+  validateRegistration,
+} from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +31,11 @@ if (!SESSION_SECRET || SESSION_SECRET === "bitte-aendern") {
 }
 const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const users = new UserStore(path.join(DATA_DIR, "users.json"));
+const sessions = createSessions(secret);
+const loginLimiter = createLoginLimiter();
+
 const baseCharacters = JSON.parse(fs.readFileSync(path.join(__dirname, "characters.json"), "utf8"));
 for (const c of baseCharacters) {
   if (validateCharacter(c)) {
@@ -29,11 +43,13 @@ for (const c of baseCharacters) {
   }
 }
 
-// Eigene Figuren, die über die Weboberfläche angelegt werden.
-const CUSTOM_FILE = process.env.CUSTOM_CHARACTERS_FILE || path.join(__dirname, "data", "custom-characters.json");
+// Eigene Figuren, die über die Weboberfläche angelegt werden. Jede gehört einem Konto (ownerId).
+const CUSTOM_FILE = path.join(DATA_DIR, "custom-characters.json");
 let customCharacters = [];
 try {
-  customCharacters = JSON.parse(fs.readFileSync(CUSTOM_FILE, "utf8")).filter((c) => !validateCharacter(c));
+  customCharacters = JSON.parse(fs.readFileSync(CUSTOM_FILE, "utf8")).filter(
+    (c) => c.ownerId && !validateCharacter(c),
+  );
 } catch {
   customCharacters = [];
 }
@@ -41,7 +57,7 @@ function saveCustom() {
   fs.mkdirSync(path.dirname(CUSTOM_FILE), { recursive: true });
   fs.writeFileSync(CUSTOM_FILE, JSON.stringify(customCharacters, null, 2));
 }
-const allCharacters = () => [...baseCharacters, ...customCharacters];
+const charactersFor = (user) => [...baseCharacters, ...customCharacters.filter((c) => c.ownerId === user.id)];
 
 // Gibt eine Fehlermeldung zurück oder null, wenn die Figur gültig ist.
 export function validateCharacter(c) {
@@ -55,62 +71,102 @@ export function validateCharacter(c) {
   return null;
 }
 
-const AGE_COOKIE = "age_verified";
-const sign = (value) => crypto.createHmac("sha256", secret).update(value).digest("hex");
-
-export function ageFromBirthdate(birthdate, now = new Date()) {
-  const d = new Date(birthdate);
-  if (Number.isNaN(d.getTime())) return null;
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
-  return age;
-}
-
-function isVerified(req) {
-  const raw = req.cookies[AGE_COOKIE];
-  if (!raw) return false;
-  const [value, sig] = raw.split(".");
-  if (!value || !sig || sig.length !== 64) return false;
-  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(sign(value)));
-}
+export { ageFromBirthdate };
 
 const app = express();
 app.use(express.json({ limit: "200kb" }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/status", (req, res) => res.json({ verified: isVerified(req) }));
-
-app.post("/api/verify-age", (req, res) => {
-  const { birthdate, confirm } = req.body || {};
-  const age = ageFromBirthdate(birthdate);
-  if (age === null || age > 120) return res.status(400).json({ error: "Ungültiges Geburtsdatum." });
-  if (age < 18 || confirm !== true) {
-    return res.status(403).json({ error: "Dieser Bereich ist nur für Erwachsene ab 18 Jahren." });
-  }
-  const value = String(Date.now());
-  res.cookie(AGE_COOKIE, `${value}.${sign(value)}`, {
+function setSession(req, res, user) {
+  res.cookie(SESSION_COOKIE, sessions.issue(user), {
     httpOnly: true,
     sameSite: "strict",
     secure: req.secure,
-    maxAge: 1000 * 60 * 60 * 24 * 30,
+    maxAge: SESSION_MAX_AGE,
   });
+}
+
+// Hängt den angemeldeten Benutzer an req.user oder antwortet mit 401.
+function requireUser(req, res, next) {
+  const user = sessions.read(req.cookies[SESSION_COOKIE], users);
+  if (!user) return res.status(401).json({ error: "Bitte melde dich an." });
+  req.user = user;
+  next();
+}
+
+app.get("/api/me", (req, res) => {
+  const user = sessions.read(req.cookies[SESSION_COOKIE], users);
+  res.json(user ? { loggedIn: true, username: user.username } : { loggedIn: false });
+});
+
+app.post("/api/register", (req, res) => {
+  const body = req.body || {};
+  const error = validateRegistration(body);
+  if (error) return res.status(400).json({ error });
+  const user = users.create({ username: body.username, password: body.password });
+  if (!user) return res.status(409).json({ error: "Dieser Benutzername ist schon vergeben." });
+  setSession(req, res, user);
+  res.status(201).json({ username: user.username });
+});
+
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body || {};
+  const key = `${req.ip}|${String(username).toLowerCase()}`;
+  if (loginLimiter.blocked(key)) {
+    return res.status(429).json({ error: "Zu viele Fehlversuche. Bitte warte 15 Minuten." });
+  }
+  const user = users.authenticate(String(username ?? ""), String(password ?? ""));
+  if (!user) {
+    loginLimiter.fail(key);
+    return res.status(401).json({ error: "Benutzername oder Passwort falsch." });
+  }
+  loginLimiter.reset(key);
+  setSession(req, res, user);
+  res.json({ username: user.username });
+});
+
+app.post("/api/logout", (req, res) => {
+  res.clearCookie(SESSION_COOKIE);
   res.json({ ok: true });
 });
 
-app.get("/api/characters", (req, res) => {
-  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
+app.post("/api/password", requireUser, (req, res) => {
+  const { oldPassword, newPassword } = req.body || {};
+  if (!users.authenticate(req.user.username, String(oldPassword ?? ""))) {
+    return res.status(401).json({ error: "Aktuelles Passwort ist falsch." });
+  }
+  if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 200) {
+    return res.status(400).json({ error: "Neues Passwort muss mindestens 8 Zeichen lang sein." });
+  }
+  users.changePassword(req.user, newPassword);
+  setSession(req, res, req.user);
+  res.json({ ok: true });
+});
+
+app.delete("/api/account", requireUser, (req, res) => {
+  const { password } = req.body || {};
+  if (!users.authenticate(req.user.username, String(password ?? ""))) {
+    return res.status(401).json({ error: "Passwort ist falsch." });
+  }
+  customCharacters = customCharacters.filter((c) => c.ownerId !== req.user.id);
+  saveCustom();
+  users.remove(req.user.id);
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
+
+app.get("/api/characters", requireUser, (req, res) => {
   res.json(
-    allCharacters().map(({ id, name, age, greeting, persona, custom }) => ({
+    charactersFor(req.user).map(({ id, name, age, greeting, persona, custom }) => ({
       id, name, age, greeting, custom: !!custom, ...(custom ? { persona } : {}),
     })),
   );
 });
 
-app.post("/api/characters", (req, res) => {
-  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
-  if (customCharacters.length >= 200) return res.status(400).json({ error: "Maximale Anzahl eigener Figuren erreicht." });
+app.post("/api/characters", requireUser, (req, res) => {
+  const mine = customCharacters.filter((c) => c.ownerId === req.user.id);
+  if (mine.length >= 50) return res.status(400).json({ error: "Maximal 50 eigene Figuren pro Konto." });
   const body = req.body || {};
   const c = {
     name: String(body.name ?? "").trim(),
@@ -120,26 +176,24 @@ app.post("/api/characters", (req, res) => {
   };
   const error = validateCharacter(c);
   if (error) return res.status(400).json({ error });
-  const character = { id: `custom-${crypto.randomUUID()}`, ...c, custom: true };
+  const character = { id: `custom-${crypto.randomUUID()}`, ...c, custom: true, ownerId: req.user.id };
   customCharacters.push(character);
   saveCustom();
-  res.status(201).json(character);
+  const { ownerId, ...publicFields } = character;
+  res.status(201).json(publicFields);
 });
 
-app.delete("/api/characters/:id", (req, res) => {
-  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
+app.delete("/api/characters/:id", requireUser, (req, res) => {
   const before = customCharacters.length;
-  customCharacters = customCharacters.filter((c) => c.id !== req.params.id);
+  customCharacters = customCharacters.filter((c) => !(c.id === req.params.id && c.ownerId === req.user.id));
   if (customCharacters.length === before) return res.status(404).json({ error: "Eigene Figur nicht gefunden." });
   saveCustom();
   res.json({ ok: true });
 });
 
-app.post("/api/chat", async (req, res) => {
-  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
-
+app.post("/api/chat", requireUser, async (req, res) => {
   const { characterId, messages } = req.body || {};
-  const character = allCharacters().find((c) => c.id === characterId);
+  const character = charactersFor(req.user).find((c) => c.id === characterId);
   if (!character) return res.status(400).json({ error: "Unbekannte Figur." });
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Keine Nachrichten." });

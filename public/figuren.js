@@ -75,8 +75,8 @@ $("char-form").addEventListener("submit", async (e) => {
   }
 });
 
-api("/api/status").then(({ verified }) => {
-  if (!verified) return ($("locked").hidden = false);
+api("/api/me").then(({ loggedIn }) => {
+  if (!loggedIn) return ($("locked").hidden = false);
   $("editor").hidden = false;
   $("list-wrap").hidden = false;
   loadList();

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="rating" content="adult">
+  <title>Mein Konto</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page">
+    <header>
+      <a class="button" href="/">← Zurück zum Chat</a>
+      <button type="button" id="logout" class="secondary">Abmelden</button>
+    </header>
+    <p id="locked" class="error" hidden>Bitte melde dich zuerst auf der <a href="/">Startseite</a> an.</p>
+
+    <div id="content" hidden>
+      <h1>Konto: <span id="username"></span></h1>
+
+      <section class="card wide">
+        <h2>Passwort ändern</h2>
+        <form id="pw-form">
+          <label>Aktuelles Passwort <input id="old-pass" type="password" autocomplete="current-password" required></label>
+          <label>Neues Passwort <small>(mind. 8 Zeichen)</small> <input id="new-pass" type="password" autocomplete="new-password" minlength="8" required></label>
+          <button type="submit">Passwort ändern</button>
+          <p id="pw-msg" role="alert"></p>
+        </form>
+        <p class="hint">Nach der Änderung werden alle anderen Geräte abgemeldet.</p>
+      </section>
+
+      <section class="card wide">
+        <h2>Konto löschen</h2>
+        <p class="hint">Löscht dein Konto und alle deine eigenen Figuren endgültig.</p>
+        <form id="delete-form">
+          <label>Passwort zur Bestätigung <input id="del-pass" type="password" autocomplete="current-password" required></label>
+          <button type="submit" class="danger">Konto endgültig löschen</button>
+          <p id="del-msg" class="error" role="alert"></p>
+        </form>
+      </section>
+    </div>
+  </div>
+  <script src="konto.js"></script>
+</body>
+</html>

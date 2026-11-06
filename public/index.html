@@ -11,12 +11,25 @@
   <section id="gate" class="card" hidden>
     <h1>Nur für Erwachsene</h1>
     <p>Dieser Chat enthält Inhalte, die nur für Personen ab 18 Jahren geeignet sind. Alle Figuren sind fiktiv, volljährig und werden von einer KI gespielt.</p>
-    <form id="gate-form">
-      <label>Geburtsdatum <input type="date" id="birthdate" required></label>
-      <label class="check"><input type="checkbox" id="confirm" required> Ich bestätige, dass ich mindestens 18 Jahre alt bin.</label>
-      <button type="submit">Weiter</button>
-      <p id="gate-error" class="error" role="alert"></p>
+    <div class="tabs" role="tablist">
+      <button type="button" id="tab-login" class="tab active" role="tab">Anmelden</button>
+      <button type="button" id="tab-register" class="tab" role="tab">Registrieren</button>
+    </div>
+
+    <form id="login-form">
+      <label>Benutzername <input id="login-user" autocomplete="username" required></label>
+      <label>Passwort <input id="login-pass" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Anmelden</button>
     </form>
+
+    <form id="register-form" hidden>
+      <label>Benutzername <input id="reg-user" autocomplete="username" pattern="[A-Za-z0-9_.\-]{3,24}" title="3–24 Zeichen: Buchstaben, Ziffern, _ . -" required></label>
+      <label>Passwort <small>(mind. 8 Zeichen)</small> <input id="reg-pass" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Geburtsdatum <small>(wird nicht gespeichert)</small> <input type="date" id="birthdate" required></label>
+      <label class="check"><input type="checkbox" id="confirm" required> Ich bestätige, dass ich mindestens 18 Jahre alt bin.</label>
+      <button type="submit">Konto erstellen</button>
+    </form>
+    <p id="gate-error" class="error" role="alert"></p>
   </section>
 
   <section id="app" hidden>
@@ -24,6 +37,7 @@
       <select id="character" aria-label="Figur wählen"></select>
       <button id="reset" type="button">Neu starten</button>
       <a class="button" href="/figuren.html">Eigene Figuren</a>
+      <a class="button secondary" href="/konto.html" id="account-link">Konto</a>
     </header>
     <main id="log" aria-live="polite"></main>
     <form id="chat-form">
