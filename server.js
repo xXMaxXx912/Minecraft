@@ -15,6 +15,7 @@ import {
   UserStore,
   validateRegistration,
 } from "./auth.js";
+import { ChatStore } from "./chats.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +34,7 @@ const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const users = new UserStore(path.join(DATA_DIR, "users.json"));
+const chats = new ChatStore(path.join(DATA_DIR, "chats.json"));
 const sessions = createSessions(secret);
 const loginLimiter = createLoginLimiter();
 
@@ -151,6 +153,7 @@ app.delete("/api/account", requireUser, (req, res) => {
   }
   customCharacters = customCharacters.filter((c) => c.ownerId !== req.user.id);
   saveCustom();
+  chats.removeWhere((c) => c.ownerId === req.user.id);
   users.remove(req.user.id);
   res.clearCookie(SESSION_COOKIE);
   res.json({ ok: true });
@@ -188,28 +191,47 @@ app.delete("/api/characters/:id", requireUser, (req, res) => {
   customCharacters = customCharacters.filter((c) => !(c.id === req.params.id && c.ownerId === req.user.id));
   if (customCharacters.length === before) return res.status(404).json({ error: "Eigene Figur nicht gefunden." });
   saveCustom();
+  chats.removeWhere((c) => c.ownerId === req.user.id && c.characterId === req.params.id);
   res.json({ ok: true });
 });
 
-app.post("/api/chat", requireUser, async (req, res) => {
-  const { characterId, messages } = req.body || {};
-  const character = charactersFor(req.user).find((c) => c.id === characterId);
+// ---- Gespräche ----
+
+const chatSummary = (chat, user) => {
+  const character = charactersFor(user).find((c) => c.id === chat.characterId);
+  return {
+    id: chat.id,
+    characterId: chat.characterId,
+    characterName: character?.name ?? "(gelöschte Figur)",
+    title: chat.title,
+    updatedAt: chat.updatedAt,
+  };
+};
+
+app.get("/api/chats", requireUser, (req, res) => {
+  res.json(chats.listFor(req.user.id).map((c) => chatSummary(c, req.user)));
+});
+
+app.post("/api/chats", requireUser, (req, res) => {
+  const character = charactersFor(req.user).find((c) => c.id === req.body?.characterId);
   if (!character) return res.status(400).json({ error: "Unbekannte Figur." });
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: "Keine Nachrichten." });
-  }
+  const chat = chats.create(req.user.id, character);
+  if (!chat) return res.status(400).json({ error: "Maximal 100 Gespräche – bitte lösche alte Gespräche." });
+  res.status(201).json({ ...chatSummary(chat, req.user), messages: chat.messages });
+});
 
-  // Nur user/assistant-Rollen vom Client übernehmen, Systemprompt wird serverseitig gesetzt.
-  const history = messages
-    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-    .slice(-40)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+app.get("/api/chats/:id", requireUser, (req, res) => {
+  const chat = chats.get(req.user.id, req.params.id);
+  if (!chat) return res.status(404).json({ error: "Gespräch nicht gefunden." });
+  res.json({ ...chatSummary(chat, req.user), messages: chat.messages });
+});
 
-  const last = history.at(-1);
-  if (last?.role === "user" && mentionsMinor(last.content)) {
-    return res.json({ reply: REFUSAL, blocked: true });
-  }
+app.delete("/api/chats/:id", requireUser, (req, res) => {
+  if (!chats.remove(req.user.id, req.params.id)) return res.status(404).json({ error: "Gespräch nicht gefunden." });
+  res.json({ ok: true });
+});
 
+async function askLLM(character, history) {
   const system = [
     `Du spielst die Figur ${character.name} (${character.age} Jahre) in einem Rollenspiel mit einem erwachsenen Nutzer.`,
     character.persona,
@@ -217,32 +239,55 @@ app.post("/api/chat", requireUser, async (req, res) => {
     HARD_RULES,
   ].join("\n\n");
 
+  const r = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LLM_API_KEY}` },
+    body: JSON.stringify({
+      model: LLM_MODEL,
+      messages: [{ role: "system", content: system }, ...history],
+      temperature: 0.9,
+      max_tokens: 600,
+    }),
+  });
+  if (!r.ok) {
+    console.error("LLM-Fehler", r.status, await r.text());
+    throw new Error(`KI-Anbieter antwortete mit Status ${r.status}.`);
+  }
+  const data = await r.json();
+  const reply = data.choices?.[0]?.message?.content?.trim() || "…";
+  return mentionsMinor(reply) ? REFUSAL : reply;
+}
+
+app.post("/api/chats/:id/messages", requireUser, async (req, res) => {
+  const chat = chats.get(req.user.id, req.params.id);
+  if (!chat) return res.status(404).json({ error: "Gespräch nicht gefunden." });
+  const character = charactersFor(req.user).find((c) => c.id === chat.characterId);
+  if (!character) return res.status(400).json({ error: "Die Figur dieses Gesprächs wurde gelöscht." });
+
+  const content = typeof req.body?.content === "string" ? req.body.content.trim().slice(0, 4000) : "";
+  if (!content) return res.status(400).json({ error: "Leere Nachricht." });
+
+  const userMsg = { role: "user", content };
+  if (mentionsMinor(content)) {
+    const reply = { role: "assistant", content: REFUSAL };
+    chats.append(chat, userMsg, reply);
+    return res.json({ reply: reply.content, blocked: true, title: chat.title });
+  }
+
   if (!LLM_API_KEY || !LLM_MODEL) {
     return res.status(500).json({ error: "LLM_API_KEY und LLM_MODEL müssen in .env gesetzt sein." });
   }
 
+  chats.append(chat, userMsg);
   try {
-    const r = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${LLM_API_KEY}` },
-      body: JSON.stringify({
-        model: LLM_MODEL,
-        messages: [{ role: "system", content: system }, ...history],
-        temperature: 0.9,
-        max_tokens: 600,
-      }),
-    });
-    if (!r.ok) {
-      console.error("LLM-Fehler", r.status, await r.text());
-      return res.status(502).json({ error: `KI-Anbieter antwortete mit Status ${r.status}.` });
-    }
-    const data = await r.json();
-    let reply = data.choices?.[0]?.message?.content?.trim() || "…";
-    if (mentionsMinor(reply)) reply = REFUSAL;
-    res.json({ reply });
+    const history = chat.messages.slice(-40).map(({ role, content }) => ({ role, content }));
+    const reply = await askLLM(character, history);
+    chats.append(chat, { role: "assistant", content: reply });
+    res.json({ reply, title: chat.title });
   } catch (err) {
     console.error(err);
-    res.status(502).json({ error: "KI-Anbieter nicht erreichbar." });
+    chats.removeMessage(chat, userMsg); // Nutzernachricht zurücknehmen, damit man es erneut versuchen kann
+    res.status(502).json({ error: err.message.startsWith("KI-Anbieter") ? err.message : "KI-Anbieter nicht erreichbar." });
   }
 });
 

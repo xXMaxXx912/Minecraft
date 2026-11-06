@@ -36,3 +36,7 @@ a.button.secondary { background:#3b3542; }
 .tab { flex:1; background:#2a2630; }
 .tab.active { background:var(--accent); }
 .danger { background:#8e1b1b; }
+header select#chat { flex:1 1 100%; }
+.new-chat { display:flex; gap:8px; margin-top:8px; }
+.new-chat select { flex:1; min-width:0; }
+.msg.error-msg { border:1px solid #8e1b1b; }

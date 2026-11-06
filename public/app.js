@@ -1,40 +1,80 @@
 const $ = (id) => document.getElementById(id);
 let characters = [];
-let messages = [];
+let chatList = [];
+// Aktuelles Gespräch. Ohne id ist es ein Entwurf, der erst mit der ersten Nachricht gespeichert wird.
+let chat = null;
 
-async function api(path, body) {
-  const r = await fetch(path, body
-    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
-    : {});
+async function api(path, body, method) {
+  const r = await fetch(path, {
+    method: method || (body ? "POST" : "GET"),
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `Fehler ${r.status}`);
   return data;
 }
 
-function current() {
-  return characters.find((c) => c.id === $("character").value);
+const characterById = (id) => characters.find((c) => c.id === id);
+const formatDate = (iso) =>
+  new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+function rememberChat(id) {
+  try {
+    if (id) localStorage.setItem("lastChat", id);
+  } catch {}
 }
 
-function render() {
+function renderChatSelect() {
+  const sel = $("chat");
+  sel.innerHTML = "";
+  if (chat && !chat.id) sel.add(new Option(`✎ Neues Gespräch mit ${chat.characterName}`, ""));
+  for (const c of chatList) sel.add(new Option(`${c.characterName} – ${c.title} · ${formatDate(c.updatedAt)}`, c.id));
+  sel.value = chat?.id ?? "";
+  $("delete-chat").disabled = !chat?.id;
+}
+
+function renderMessages() {
   const log = $("log");
   log.innerHTML = "";
-  const name = current()?.name ?? "";
-  for (const m of messages) {
+  for (const m of chat?.messages ?? []) {
     const div = document.createElement("div");
-    div.className = `msg ${m.role}`;
+    div.className = `msg ${m.role}${m.error ? " error-msg" : ""}`;
     const who = document.createElement("span");
     who.className = "who";
-    who.textContent = m.role === "user" ? "Du" : name;
+    who.textContent = m.role === "user" ? "Du" : chat.characterName;
     div.append(who, document.createTextNode(m.content));
     log.append(div);
   }
   log.scrollTop = log.scrollHeight;
 }
 
-function start() {
-  const c = current();
-  messages = c ? [{ role: "assistant", content: c.greeting }] : [];
+function render() {
+  renderChatSelect();
+  renderMessages();
+}
+
+function newDraft(characterId) {
+  const c = characterById(characterId) || characters[0];
+  if (!c) return;
+  chat = { id: null, characterId: c.id, characterName: c.name, messages: [{ role: "assistant", content: c.greeting }] };
+  $("character").value = c.id;
   render();
+  $("input").focus();
+}
+
+async function openChat(id) {
+  try {
+    chat = await api(`/api/chats/${encodeURIComponent(id)}`);
+    rememberChat(id);
+  } catch (err) {
+    alert(err.message);
+  }
+  render();
+}
+
+async function refreshList() {
+  chatList = await api("/api/chats");
 }
 
 async function openApp() {
@@ -42,13 +82,24 @@ async function openApp() {
   $("app").hidden = false;
   const me = await api("/api/me");
   $("account-link").textContent = `👤 ${me.username}`;
-  characters = await api("/api/characters");
+  [characters] = await Promise.all([api("/api/characters"), refreshList()]);
   $("character").innerHTML = "";
   for (const c of characters) $("character").add(new Option(`${c.name} (${c.age})${c.custom ? " ★" : ""}`, c.id));
+
   const wanted = new URLSearchParams(location.search).get("figur");
-  if (wanted && characters.some((c) => c.id === wanted)) $("character").value = wanted;
-  start();
+  if (wanted) history.replaceState(null, "", "/");
+  let last = null;
+  try {
+    last = localStorage.getItem("lastChat");
+  } catch {}
+
+  if (wanted && characterById(wanted)) newDraft(wanted);
+  else if (chatList.some((c) => c.id === last)) await openChat(last);
+  else if (chatList.length) await openChat(chatList[0].id);
+  else newDraft(characters[0]?.id);
 }
+
+// ---- Anmeldung / Registrierung ----
 
 function showTab(register) {
   $("register-form").hidden = !register;
@@ -83,8 +134,25 @@ $("register-form").addEventListener("submit", (e) =>
   }),
 );
 
-$("character").addEventListener("change", start);
-$("reset").addEventListener("click", start);
+// ---- Gespräche ----
+
+$("chat").addEventListener("change", () => {
+  if ($("chat").value) openChat($("chat").value);
+});
+
+$("new-chat").addEventListener("click", () => newDraft($("character").value));
+
+$("delete-chat").addEventListener("click", async () => {
+  if (!chat?.id || !confirm("Dieses Gespräch endgültig löschen?")) return;
+  try {
+    await api(`/api/chats/${encodeURIComponent(chat.id)}`, null, "DELETE");
+    await refreshList();
+    if (chatList.length) await openChat(chatList[0].id);
+    else newDraft(chat.characterId);
+  } catch (err) {
+    alert(err.message);
+  }
+});
 
 $("input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -96,17 +164,27 @@ $("input").addEventListener("keydown", (e) => {
 $("chat-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = $("input").value.trim();
-  if (!text) return;
-  $("input").value = "";
-  messages.push({ role: "user", content: text });
-  render();
-  const btn = e.submitter || $("chat-form").querySelector("button");
+  if (!text || !chat) return;
+  const btn = $("chat-form").querySelector("button");
   btn.disabled = true;
+  $("input").value = "";
+  chat.messages = chat.messages.filter((m) => !m.error);
+  chat.messages.push({ role: "user", content: text });
+  renderMessages();
   try {
-    const { reply } = await api("/api/chat", { characterId: current().id, messages: messages.filter((m) => !m.error) });
-    messages.push({ role: "assistant", content: reply });
+    if (!chat.id) {
+      const created = await api("/api/chats", { characterId: chat.characterId });
+      chat.id = created.id;
+      rememberChat(chat.id);
+    }
+    const { reply } = await api(`/api/chats/${encodeURIComponent(chat.id)}/messages`, { content: text });
+    chat.messages.push({ role: "assistant", content: reply });
+    await refreshList();
   } catch (err) {
-    messages.push({ role: "assistant", content: `⚠️ ${err.message}`, error: true });
+    // Nachricht wurde nicht gespeichert: zurück ins Eingabefeld, damit man es erneut versuchen kann.
+    chat.messages.pop();
+    chat.messages.push({ role: "assistant", content: `⚠️ ${err.message}`, error: true });
+    $("input").value = text;
   } finally {
     btn.disabled = false;
     render();

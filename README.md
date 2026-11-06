@@ -8,6 +8,10 @@ Web-App für fiktive Rollenspiel-Chats mit KI-Figuren – ausschließlich für E
   - Das Geburtsdatum wird nur geprüft, **nicht gespeichert** – gespeichert wird nur, wann die Volljährigkeit bestätigt wurde
   - Nach 5 falschen Passwörtern wird der Login 15 Minuten gesperrt
   - Passwort ändern meldet alle anderen Geräte ab
+- **Gespeicherte Gespräche** pro Konto: oben im Chat ein früheres Gespräch auswählen und weiterschreiben,
+  mit „+ Neues Gespräch“ ein neues mit einer beliebigen Figur beginnen, mit 🗑 löschen.
+  Ein neues Gespräch wird erst mit der ersten Nachricht gespeichert. Die KI bekommt jeweils die letzten
+  40 Nachrichten als Gedächtnis. Max. 100 Gespräche pro Konto.
 - **Figuren** frei definierbar in `characters.json` (Server startet nicht, wenn eine Figur nicht eindeutig volljährig ist)
 - **Beliebiger KI-Anbieter** über ein OpenAI-kompatibles API (OpenRouter, OpenAI, Ollama, LM Studio, …)
 - **Feste Schutzregeln** (`safety.js`), die der Nutzer nicht aushebeln kann: nur Erwachsene, keine realen Personen, Einvernehmlichkeit/„Stopp“, Krisenhinweis
@@ -29,9 +33,10 @@ npm test
 - **Fest eingebaut (für alle):** In `characters.json` einen Eintrag ergänzen: `id`, `name`, `age` (≥ 18), `greeting`, `persona`.
 
 ## Daten
-Konten und eigene Figuren liegen als JSON-Dateien in `data/` (Pfad änderbar über `DATA_DIR`):
-`users.json` und `custom-characters.json`. Diesen Ordner regelmäßig sichern.
-Chatverläufe werden nicht gespeichert – sie existieren nur im Browser, solange die Seite offen ist.
+Alles liegt als JSON-Dateien in `data/` (Pfad änderbar über `DATA_DIR`):
+`users.json` (Konten), `custom-characters.json` (eigene Figuren), `chats.json` (Gespräche).
+Diesen Ordner regelmäßig sichern. Gespräche werden **unverschlüsselt** gespeichert – wer Zugriff auf den
+Server hat, kann sie lesen. Beim Löschen eines Kontos oder einer Figur werden die zugehörigen Gespräche mitgelöscht.
 
 ## Wichtig vor einer Veröffentlichung
 - **HTTPS:** Im Internet nur hinter HTTPS betreiben (z. B. mit einem Reverse-Proxy wie Caddy oder nginx),
