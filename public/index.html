@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="rating" content="adult">
+  <title>Rollenspiel-Chat 18+</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="gate" class="card" hidden>
+    <h1>Nur für Erwachsene</h1>
+    <p>Dieser Chat enthält Inhalte, die nur für Personen ab 18 Jahren geeignet sind. Alle Figuren sind fiktiv, volljährig und werden von einer KI gespielt.</p>
+    <form id="gate-form">
+      <label>Geburtsdatum <input type="date" id="birthdate" required></label>
+      <label class="check"><input type="checkbox" id="confirm" required> Ich bestätige, dass ich mindestens 18 Jahre alt bin.</label>
+      <button type="submit">Weiter</button>
+      <p id="gate-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="app" hidden>
+    <header>
+      <select id="character" aria-label="Figur wählen"></select>
+      <button id="reset" type="button">Neu starten</button>
+    </header>
+    <main id="log" aria-live="polite"></main>
+    <form id="chat-form">
+      <textarea id="input" rows="2" placeholder="Schreib etwas… (Enter = senden, Shift+Enter = neue Zeile)" required></textarea>
+      <button type="submit">Senden</button>
+    </form>
+    <p class="hint">Das ist eine KI. Schreib „Stopp“, um eine Szene sofort zu beenden.</p>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

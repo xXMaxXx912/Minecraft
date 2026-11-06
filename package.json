@@ -1,0 +1,19 @@
+{
+  "name": "adult-roleplay-chatbot",
+  "version": "0.1.0",
+  "description": "Rollenspiel-Chatbot für Erwachsene (18+) mit Altersabfrage und frei wählbarem OpenAI-kompatiblem KI-Anbieter",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
