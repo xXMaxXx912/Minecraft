@@ -21,3 +21,14 @@ test("Altersberechnung", () => {
   assert.equal(ageFromBirthdate("2008-11-07", now), 17);
   assert.equal(ageFromBirthdate("quatsch", now), null);
 });
+
+import { validateCharacter } from "../server.js";
+
+test("Figuren-Validierung", () => {
+  const ok = { name: "Sofia", age: 31, greeting: "Hallo!", persona: "Sofia ist Fotografin aus Lissabon und abenteuerlustig." };
+  assert.equal(validateCharacter(ok), null);
+  assert.match(validateCharacter({ ...ok, age: 17 }), /ab 18/);
+  assert.match(validateCharacter({ ...ok, age: 18.5 }), /ab 18/);
+  assert.match(validateCharacter({ ...ok, persona: "Sie ist eine Schülerin aus Lissabon, sehr neugierig." }), /Minderjährig/);
+  assert.match(validateCharacter({ ...ok, name: "" }), /Name/);
+});

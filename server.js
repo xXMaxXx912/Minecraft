@@ -22,11 +22,37 @@ if (!SESSION_SECRET || SESSION_SECRET === "bitte-aendern") {
 }
 const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
-const characters = JSON.parse(fs.readFileSync(path.join(__dirname, "characters.json"), "utf8"));
-for (const c of characters) {
-  if (!(c.age >= 18) || mentionsMinor(c.persona)) {
-    throw new Error(`Figur "${c.name}" ist nicht eindeutig volljährig – bitte characters.json korrigieren.`);
+const baseCharacters = JSON.parse(fs.readFileSync(path.join(__dirname, "characters.json"), "utf8"));
+for (const c of baseCharacters) {
+  if (validateCharacter(c)) {
+    throw new Error(`Figur "${c.name}" ist ungültig – bitte characters.json korrigieren.`);
   }
+}
+
+// Eigene Figuren, die über die Weboberfläche angelegt werden.
+const CUSTOM_FILE = process.env.CUSTOM_CHARACTERS_FILE || path.join(__dirname, "data", "custom-characters.json");
+let customCharacters = [];
+try {
+  customCharacters = JSON.parse(fs.readFileSync(CUSTOM_FILE, "utf8")).filter((c) => !validateCharacter(c));
+} catch {
+  customCharacters = [];
+}
+function saveCustom() {
+  fs.mkdirSync(path.dirname(CUSTOM_FILE), { recursive: true });
+  fs.writeFileSync(CUSTOM_FILE, JSON.stringify(customCharacters, null, 2));
+}
+const allCharacters = () => [...baseCharacters, ...customCharacters];
+
+// Gibt eine Fehlermeldung zurück oder null, wenn die Figur gültig ist.
+export function validateCharacter(c) {
+  if (!c || typeof c !== "object") return "Ungültige Daten.";
+  const { name, age, greeting, persona } = c;
+  if (typeof name !== "string" || !name.trim() || name.length > 40) return "Name fehlt oder ist zu lang (max. 40 Zeichen).";
+  if (!Number.isInteger(age) || age < 18 || age > 999) return "Alter muss eine ganze Zahl ab 18 sein.";
+  if (typeof greeting !== "string" || !greeting.trim() || greeting.length > 500) return "Begrüßung fehlt oder ist zu lang (max. 500 Zeichen).";
+  if (typeof persona !== "string" || persona.trim().length < 20 || persona.length > 2000) return "Beschreibung muss 20–2000 Zeichen lang sein.";
+  if ([name, greeting, persona].some(mentionsMinor)) return "Figuren müssen eindeutig erwachsen sein – Bezüge zu Minderjährigen sind nicht erlaubt.";
+  return null;
 }
 
 const AGE_COOKIE = "age_verified";
@@ -75,14 +101,45 @@ app.post("/api/verify-age", (req, res) => {
 
 app.get("/api/characters", (req, res) => {
   if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
-  res.json(characters.map(({ id, name, age, greeting }) => ({ id, name, age, greeting })));
+  res.json(
+    allCharacters().map(({ id, name, age, greeting, persona, custom }) => ({
+      id, name, age, greeting, custom: !!custom, ...(custom ? { persona } : {}),
+    })),
+  );
+});
+
+app.post("/api/characters", (req, res) => {
+  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
+  if (customCharacters.length >= 200) return res.status(400).json({ error: "Maximale Anzahl eigener Figuren erreicht." });
+  const body = req.body || {};
+  const c = {
+    name: String(body.name ?? "").trim(),
+    age: Number(body.age),
+    greeting: String(body.greeting ?? "").trim(),
+    persona: String(body.persona ?? "").trim(),
+  };
+  const error = validateCharacter(c);
+  if (error) return res.status(400).json({ error });
+  const character = { id: `custom-${crypto.randomUUID()}`, ...c, custom: true };
+  customCharacters.push(character);
+  saveCustom();
+  res.status(201).json(character);
+});
+
+app.delete("/api/characters/:id", (req, res) => {
+  if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
+  const before = customCharacters.length;
+  customCharacters = customCharacters.filter((c) => c.id !== req.params.id);
+  if (customCharacters.length === before) return res.status(404).json({ error: "Eigene Figur nicht gefunden." });
+  saveCustom();
+  res.json({ ok: true });
 });
 
 app.post("/api/chat", async (req, res) => {
   if (!isVerified(req)) return res.status(403).json({ error: "Altersbestätigung erforderlich." });
 
   const { characterId, messages } = req.body || {};
-  const character = characters.find((c) => c.id === characterId);
+  const character = allCharacters().find((c) => c.id === characterId);
   if (!character) return res.status(400).json({ error: "Unbekannte Figur." });
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Keine Nachrichten." });

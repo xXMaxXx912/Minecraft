@@ -42,7 +42,9 @@ async function openApp() {
   $("app").hidden = false;
   characters = await api("/api/characters");
   $("character").innerHTML = "";
-  for (const c of characters) $("character").add(new Option(`${c.name} (${c.age})`, c.id));
+  for (const c of characters) $("character").add(new Option(`${c.name} (${c.age})${c.custom ? " ★" : ""}`, c.id));
+  const wanted = new URLSearchParams(location.search).get("figur");
+  if (wanted && characters.some((c) => c.id === wanted)) $("character").value = wanted;
   start();
 }
 

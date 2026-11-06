@@ -17,8 +17,15 @@ npm start              # http://localhost:3000
 npm test
 ```
 
-## Eigene Figur anlegen
-In `characters.json` einen Eintrag ergänzen: `id`, `name`, `age` (≥ 18), `greeting`, `persona`.
+## Eigene Figuren anlegen
+- **Im Browser:** Im Chat auf „Eigene Figuren“ klicken (oder `/figuren.html` öffnen). Dort Name, Alter (≥ 18),
+  Begrüßung und Beschreibung eingeben, speichern und mit „Chatten“ direkt loslegen. Eigene Figuren
+  lassen sich dort auch wieder löschen und sind im Chat mit ★ markiert.
+  Gespeichert werden sie in `data/custom-characters.json` (Pfad änderbar über `CUSTOM_CHARACTERS_FILE`).
+  Alle Eingaben werden serverseitig geprüft (Alter, Länge, Bezüge zu Minderjährigen).
+- **Fest eingebaut:** In `characters.json` einen Eintrag ergänzen: `id`, `name`, `age` (≥ 18), `greeting`, `persona`.
+
+> Hinweis: Eigene Figuren gelten für alle Nutzer dieser Installation (es gibt noch keine Benutzerkonten).
 
 ## Wichtig vor einer Veröffentlichung
 - **Rechtliches:** In Deutschland verlangt der JMStV für pornografische Inhalte ein von der KJM anerkanntes

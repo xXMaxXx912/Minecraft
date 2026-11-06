@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="rating" content="adult">
+  <title>Eigene Figuren 18+</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page">
+    <header>
+      <a class="button" href="/">← Zurück zum Chat</a>
+    </header>
+    <p id="locked" class="error" hidden>Bitte bestätige zuerst auf der <a href="/">Startseite</a>, dass du mindestens 18 bist.</p>
+
+    <section id="editor" class="card wide" hidden>
+      <h1>Neue Figur anlegen</h1>
+      <form id="char-form">
+        <label>Name <input id="name" maxlength="40" required placeholder="z. B. Sofia"></label>
+        <label>Alter <input id="age" type="number" min="18" max="999" value="25" required></label>
+        <label>Begrüßung <small>(erste Nachricht der Figur)</small>
+          <textarea id="greeting" rows="2" maxlength="500" required placeholder="Na, wer bist du denn?"></textarea>
+        </label>
+        <label>Beschreibung <small>(Persönlichkeit, Aussehen, Hintergrund, Setting – <span id="count">0</span>/2000)</small>
+          <textarea id="persona" rows="6" minlength="20" maxlength="2000" required
+            placeholder="Sofia ist 31, Fotografin aus Lissabon. Abenteuerlustig, neugierig, ein bisschen frech …"></textarea>
+        </label>
+        <p class="hint">Alle Figuren müssen erwachsen sein (18+). Keine echten Personen.</p>
+        <button type="submit">Figur speichern</button>
+        <p id="form-msg" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="list-wrap" hidden>
+      <h2>Deine Figuren</h2>
+      <ul id="list"></ul>
+    </section>
+  </div>
+  <script src="figuren.js"></script>
+</body>
+</html>
