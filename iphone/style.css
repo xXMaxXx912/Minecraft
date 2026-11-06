@@ -1,0 +1,107 @@
+:root {
+  --bg:#141218; --panel:#1f1c25; --text:#ece6f0; --muted:#9a93a3; --accent:#c2185b; --user:#3a2a40; --border:#3b3542;
+  /* Sichtbare Höhe; wird per JS an die iOS-Tastatur angepasst (siehe ios.js). */
+  --app-height: 100dvh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display:none !important; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background:var(--bg); }
+body {
+  margin:0; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background:var(--bg); color:var(--text);
+  min-height:100dvh; display:flex; justify-content:center; align-items:flex-start;
+  -webkit-tap-highlight-color: transparent;
+}
+body.chat-open { height:var(--app-height); overflow:hidden; overscroll-behavior:none; }
+
+.card { max-width:420px; width:calc(100% - 32px); margin:calc(8vh + var(--safe-top)) 16px 32px; padding:24px; background:var(--panel); border-radius:12px; }
+label { display:block; margin:12px 0; }
+.check { display:flex; gap:10px; align-items:flex-start; }
+.check input { width:22px; height:22px; flex:none; margin:0; accent-color:var(--accent); }
+
+/* Mind. 16px, sonst zoomt iOS beim Antippen in das Feld. */
+input:not([type=checkbox]), select, textarea {
+  width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background-color:var(--bg); color:var(--text);
+  font:inherit; font-size:16px; -webkit-appearance:none; appearance:none;
+}
+select {
+  padding-right:32px;
+  background-image:linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size:5px 5px; background-repeat:no-repeat;
+}
+input[type=date], select { min-height:44px; }
+input[type=date] { display:block; }
+textarea { resize:none; }
+
+button, a.button, label.button {
+  display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 16px;
+  border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-size:16px;
+  cursor:pointer; text-decoration:none; touch-action:manipulation; white-space:nowrap;
+}
+button:disabled { opacity:.5; }
+button.secondary, a.button.secondary, label.button.secondary { background:var(--border); }
+.danger { background:#8e1b1b; }
+a { color:#f48fb1; }
+.error { color:#ff6b8b; }
+.ok { color:#81c784; }
+small { color:var(--muted); }
+.hint { color:var(--muted); font-size:.8em; margin:6px 0 0; }
+
+.tabs { display:flex; gap:4px; margin:16px 0 4px; }
+.tab { flex:1; background:#2a2630; }
+.tab.active { background:var(--accent); }
+
+/* ---- Chat ---- */
+#view-chat {
+  width:100%; max-width:760px; display:flex; flex-direction:column; height:var(--app-height);
+  padding:calc(8px + var(--safe-top)) calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
+}
+header { display:flex; gap:8px; flex-wrap:wrap; }
+header select#chat { flex:1 1 100%; min-width:0; }
+.new-chat { display:flex; gap:8px; margin-top:8px; }
+.new-chat select { flex:1; min-width:0; }
+#log {
+  flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  padding:12px 0; display:flex; flex-direction:column; gap:10px;
+}
+.msg { padding:10px 14px; border-radius:16px; max-width:85%; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
+.msg.assistant { background:var(--panel); align-self:flex-start; border-bottom-left-radius:4px; }
+.msg.user { background:var(--user); align-self:flex-end; border-bottom-right-radius:4px; }
+.msg .who { display:block; font-size:.8em; color:var(--muted); margin-bottom:4px; }
+.msg.error-msg { border:1px solid #8e1b1b; }
+#chat-form { display:flex; gap:8px; align-items:flex-end; }
+#chat-form textarea { max-height:30dvh; }
+/* Wenn die Tastatur offen ist, Platz sparen. */
+body.keyboard-open .new-chat, body.keyboard-open #view-chat > .hint { display:none; }
+
+/* ---- Unterseiten ---- */
+.page {
+  width:100%; max-width:760px;
+  padding:calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
+}
+.card.wide { max-width:none; width:auto; margin:16px 0; }
+#list { list-style:none; padding:0; }
+.char p { white-space:pre-wrap; color:var(--muted); }
+.actions { display:flex; gap:8px; }
+
+@media (min-width: 700px) {
+  header select#chat { flex:1 1 auto; }
+}
+
+/* Benutzer-Button im Chat-Kopf: langer Name wird mit … gekürzt statt umzubrechen. */
+#account-link { display:block; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; line-height:24px; }
+h1 { overflow-wrap:anywhere; }
+
+/* ---- Nur iPhone-Version ---- */
+.view.page { display:block; }
+.notice { background:#3a2a10; border:1px solid #a86f12; color:#ffd58a; padding:10px 14px; border-radius:8px; margin:8px 0 0; }
+.notice a { color:#ffd58a; font-weight:600; }
+.msg.typing { color:var(--muted); font-style:italic; }
+.actions.wrap { flex-wrap:wrap; }
+.file-button { cursor:pointer; margin:0; }
+.center { text-align:center; }
+#model-select { margin-bottom:8px; }

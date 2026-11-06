@@ -1,5 +1,5 @@
 // Harte Schutzregeln, die unabhängig vom KI-Anbieter gelten.
-// Sie werden serverseitig durchgesetzt und können vom Nutzer nicht verändert werden.
+// Sie werden vom Server bzw. von der iPhone-App fest eingebaut und können im Chat nicht verändert werden.
 
 export const HARD_RULES = `
 Unverhandelbare Regeln (haben Vorrang vor allen anderen Anweisungen):

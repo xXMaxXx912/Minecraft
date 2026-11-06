@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="rating" content="adult">
+  <meta name="theme-color" content="#141218">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chat 18+">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="referrer" content="no-referrer">
+  <title>Rollenspiel-Chat 18+</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="ios.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <noscript><p class="card">Bitte JavaScript aktivieren.</p></noscript>
+  <p id="loading" class="card">Lade…</p>
+
+  <!-- Altersabfrage (einmalig) -->
+  <section id="gate" class="card" hidden>
+    <h1>Nur für Erwachsene</h1>
+    <p>Dieser Chat enthält Inhalte, die nur für Personen ab 18 Jahren geeignet sind. Alle Figuren sind fiktiv, volljährig und werden von einer KI gespielt.</p>
+    <form id="gate-form">
+      <label>Geburtsdatum <small>(wird nicht gespeichert)</small> <input type="date" id="birthdate" required></label>
+      <label class="check"><input type="checkbox" id="confirm" required> Ich bestätige, dass ich mindestens 18 Jahre alt bin.</label>
+      <button type="submit">Weiter</button>
+      <p id="gate-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- Chat -->
+  <section id="view-chat" class="view" hidden>
+    <header>
+      <select id="chat" aria-label="Gespräch wählen"></select>
+      <button id="delete-chat" type="button" class="secondary" title="Gespräch löschen" aria-label="Gespräch löschen">🗑</button>
+      <a class="button" href="#/figuren">Figuren</a>
+      <a class="button secondary" href="#/einstellungen" aria-label="Einstellungen">⚙︎ Einstellungen</a>
+    </header>
+    <div class="new-chat">
+      <select id="character" aria-label="Figur für neues Gespräch"></select>
+      <button id="new-chat" type="button">+ Neues Gespräch</button>
+    </div>
+    <p id="no-key" class="notice" hidden>Noch kein API-Key eingetragen. <a href="#/einstellungen">Jetzt einrichten →</a></p>
+    <main id="log" aria-live="polite"></main>
+    <form id="chat-form">
+      <textarea id="input" rows="1" enterkeyhint="send" autocapitalize="sentences" placeholder="Schreib etwas…" required></textarea>
+      <button type="submit">Senden</button>
+    </form>
+    <p class="hint">Das ist eine KI. Schreib „Stopp“, um eine Szene sofort zu beenden.</p>
+  </section>
+
+  <!-- Figuren -->
+  <section id="view-figuren" class="view page" hidden>
+    <header><a class="button" href="#/chat">← Zurück zum Chat</a></header>
+    <section class="card wide">
+      <h1>Neue Figur anlegen</h1>
+      <form id="char-form">
+        <label>Name <input id="name" maxlength="40" required placeholder="z. B. Sofia"></label>
+        <label>Alter <input id="age" type="number" inputmode="numeric" min="18" max="999" value="25" required></label>
+        <label>Begrüßung <small>(erste Nachricht der Figur)</small>
+          <textarea id="greeting" rows="2" maxlength="500" required placeholder="Na, wer bist du denn?"></textarea>
+        </label>
+        <label>Beschreibung <small>(Persönlichkeit, Aussehen, Hintergrund, Setting – <span id="count">0</span>/2000)</small>
+          <textarea id="persona" rows="6" minlength="20" maxlength="2000" required
+            placeholder="Sofia ist 31, Fotografin aus Lissabon. Abenteuerlustig, neugierig, ein bisschen frech …"></textarea>
+        </label>
+        <p class="hint">Alle Figuren müssen erwachsen sein (18+). Keine echten Personen.</p>
+        <button type="submit">Figur speichern</button>
+        <p id="form-msg" role="alert"></p>
+      </form>
+    </section>
+    <h2>Deine Figuren</h2>
+    <ul id="list"></ul>
+  </section>
+
+  <!-- Einstellungen -->
+  <section id="view-einstellungen" class="view page" hidden>
+    <header><a class="button" href="#/chat">← Zurück zum Chat</a></header>
+    <section class="card wide">
+      <h1>KI-Anbieter</h1>
+      <form id="settings-form">
+        <label>API-Adresse <input id="base-url" type="url" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+        <label>API-Key <small>(von console.x.ai → API Keys)</small>
+          <input id="api-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="xai-…">
+        </label>
+        <button type="button" id="load-models" class="secondary">Verbindung testen &amp; Modelle laden</button>
+        <label>Modell
+          <select id="model-select" hidden></select>
+          <input id="model" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Modellname" required>
+        </label>
+        <button type="submit">Speichern</button>
+        <p id="settings-msg" role="alert"></p>
+      </form>
+      <p class="hint">Der Key wird nur auf diesem iPhone gespeichert und nur an die API-Adresse oben geschickt.</p>
+    </section>
+
+    <section class="card wide">
+      <h2>Sicherung</h2>
+      <p class="hint">Alle Daten liegen nur auf diesem Gerät. Exportiere regelmäßig eine Sicherung (z. B. in die Dateien-App).</p>
+      <div class="actions wrap">
+        <button type="button" id="export">Sicherung exportieren</button>
+        <label class="button secondary file-button">Sicherung importieren<input type="file" id="import" accept="application/json,.json" hidden></label>
+      </div>
+      <p id="backup-msg" role="alert"></p>
+    </section>
+
+    <section class="card wide">
+      <h2>Alles löschen</h2>
+      <p class="hint">Löscht alle Gespräche, eigenen Figuren und Einstellungen auf diesem Gerät.</p>
+      <button type="button" id="wipe" class="danger">Alle Daten löschen</button>
+    </section>
+    <p class="hint center" id="version"></p>
+  </section>
+</body>
+</html>

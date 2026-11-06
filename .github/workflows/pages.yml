@@ -1,0 +1,46 @@
+# Veröffentlicht die iPhone-App (Ordner iphone/) auf GitHub Pages.
+# Einmalig nötig: Repository → Settings → Pages → Source: "GitHub Actions".
+name: iPhone-App veröffentlichen
+
+on:
+  push:
+    branches: [claude/18-plus-chatbot-c4i5jh, main]
+    paths: ["iphone/**", "safety.js", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci || npm install
+      - run: npm test
+        env:
+          DATA_DIR: ${{ runner.temp }}/data
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: iphone
+      - id: deployment
+        uses: actions/deploy-pages@v4

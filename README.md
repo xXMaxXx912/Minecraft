@@ -25,7 +25,33 @@ npm start              # http://localhost:3000
 npm test
 ```
 
-## Auf dem iPhone nutzen
+## iPhone-App ohne PC (empfohlen fürs iPhone)
+Im Ordner `iphone/` liegt eine Version, die **komplett auf dem iPhone läuft** – ohne eigenen Server:
+Figuren, Gespräche und der API-Key werden nur auf dem Gerät gespeichert (IndexedDB), und das iPhone
+spricht direkt mit Grok (xAI erlaubt Browser-Zugriffe). Nach dem ersten Öffnen startet sie auch offline.
+
+**Einmalig einrichten (GitHub Pages, kostenlos):**
+1. Auf GitHub: Repository → **Settings → Pages** → bei „Source“ **„GitHub Actions“** wählen.
+2. Repository → **Actions** → „iPhone-App veröffentlichen“ → **Run workflow** (läuft danach bei jeder Änderung automatisch).
+3. Die App ist dann erreichbar unter **https://xxmaxxx912.github.io/Minecraft/**
+
+**Auf dem iPhone:**
+1. Die Adresse in **Safari** öffnen → Teilen (□↑) → **„Zum Home-Bildschirm“**.
+2. App vom Home-Bildschirm starten, Alter bestätigen.
+3. In den Einstellungen den **xAI-API-Key** eintragen (console.x.ai → API Keys) →
+   „Verbindung testen & Modelle laden“ → Modell wählen → Speichern.
+
+**Wichtig:**
+- Die Daten liegen **nur auf diesem iPhone**. Über Einstellungen → „Sicherung exportieren“ regelmäßig
+  eine Sicherung in der Dateien-App ablegen (der API-Key ist darin absichtlich nicht enthalten).
+- Immer die App vom **Home-Bildschirm** benutzen: Safari kann Daten normaler Webseiten nach einigen
+  Wochen ohne Nutzung löschen, Home-Bildschirm-Apps sind davon ausgenommen.
+- Der API-Key wird nur an die eingetragene API-Adresse geschickt. Wer dein entsperrtes iPhone hat,
+  kann die App öffnen – nutze bei Bedarf die iOS-Funktion „App sperren“/Bildschirmzeit.
+
+Lokal ausprobieren: `npm run iphone` → http://localhost:8080
+
+## Server-Version auf dem iPhone nutzen
 Das iPhone kann den Server nicht selbst ausführen – der Server läuft auf einem PC/Mac oder im Internet,
 das iPhone öffnet die App in Safari und kann sie wie eine normale App auf den Home-Bildschirm legen.
 
