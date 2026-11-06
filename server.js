@@ -29,10 +29,9 @@ const {
   PORT = 3000,
 } = process.env;
 
-if (!SESSION_SECRET || SESSION_SECRET === "bitte-aendern") {
-  console.warn("WARNUNG: SESSION_SECRET ist nicht gesetzt – bitte in .env eintragen.");
-}
-const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+// Der Platzhalter aus .env.example ist öffentlich bekannt und darf nie als Schlüssel dienen.
+const secretIsSet = !!SESSION_SECRET && SESSION_SECRET !== "bitte-aendern";
+const secret = secretIsSet ? SESSION_SECRET : crypto.randomBytes(32).toString("hex");
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const users = new UserStore(path.join(DATA_DIR, "users.json"));
@@ -289,6 +288,12 @@ app.post("/api/chats/:id/messages", requireUser, async (req, res) => {
 });
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (!secretIsSet) {
+    console.warn(
+      "WARNUNG: SESSION_SECRET ist nicht gesetzt – nach jedem Neustart müssen sich alle neu anmelden.\n" +
+        "         Abhilfe: npm run setup  (oder SESSION_SECRET in .env eintragen)",
+    );
+  }
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Chatbot läuft auf http://localhost:${PORT}`);
     // Adressen im lokalen Netz, z. B. zum Öffnen auf dem iPhone im selben WLAN.
