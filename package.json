@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup.js",
+    "prestart": "node scripts/check-deps.js",
     "start": "node server.js",
+    "pretest": "node scripts/check-deps.js",
     "test": "node --test",
     "iphone": "node scripts/serve-iphone.js"
   },
